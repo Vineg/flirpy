@@ -1,6 +1,7 @@
 
 import numpy as np
-import cv2
+#import cv2
+from PIL import Image
 import os
 import re
 import mmap
@@ -108,13 +109,15 @@ class splitter:
         
     def _write_tiff(self, filename, data):
         logger.debug("Writing {}", filename)
-        cv2.imwrite(filename, data.astype("uint16"))
+        #cv2.imwrite(filename, data.astype("uint16"))
+        Image.fromarray(np.array(data, dtype=np.uint16)).save(filename)
 
     def _write_preview(self, filename, data):
         drange = data.max()-data.min()
         preview_data = 255.0*((data-data.min())/drange)
         logger.debug("Writing {}", filename)
-        cv2.imwrite(filename, preview_data.astype('uint8'))
+        #cv2.imwrite(filename, preview_data.astype('uint8'))
+        Image.fromarray(np.array(data, dtype=np.uint8)).save(filename)
             
     def _make_split_folders(self, output_folder):
         Path(os.path.join(output_folder, "raw")).mkdir(exist_ok=True)
