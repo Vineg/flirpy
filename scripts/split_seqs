@@ -7,7 +7,7 @@ import argparse
 import os
 import logging
 import natsort
-import cv2
+#import cv2
 import shutil
 from tqdm import tqdm
 import time
@@ -62,9 +62,6 @@ if __name__ == "__main__":
     parser.add_argument('-i', '--input', help='Input file mask, e.g. "/path/*.SEQ" ', default="*.SEQ")
     parser.add_argument('-v', '--verbosity', help='Logging level', default='info')
     parser.add_argument('--preview_format', help='Output preview format (png, jpg, tiff)', default='jpg')
-    parser.add_argument('--rgb', help='If provided, split videos too e.g. "/path/*.MOV" ', default="")
-    parser.add_argument('--jpeg_quality', help='RGB Output quality (0-100)', type=int, default=80)
-    parser.add_argument('--use_gstreamer', help='Use Gstreamer for video decoding', action='store_true')
     parser.add_argument('--width', help='Thermal image width', type=int, default=640)
     parser.add_argument('--height', help='Thermal image height', type=int, default=512)
 
@@ -115,62 +112,3 @@ if __name__ == "__main__":
                 logger.info("Copying: {}".format(folder))
                 recursive_copy(folder, output_folder)
                 shutil.rmtree(folder)
-        
-    if args.rgb != "":
-        os.makedirs(os.path.join(output_folder, "rgb"), exist_ok=True)
-        video_files = natsort.natsorted(glob.glob(args.rgb))
-        frame_i = 0
-
-        for f in video_files:
-            logger.info("Loading: {}".format(f))
-
-        # Count number of frames
-        n_infrared = len(glob.glob(os.path.join(output_folder, "preview/frame_*")))
-        n_rgb = 0
-
-        logger.info("{} infrared frames".format(n_infrared))
-
-        for video in tqdm(video_files):
-            if args.use_gstreamer:
-                pipeline = "gst-launch-1.0 -e -v filesrc location={} ! qtdemux ! decodebin ! appsink".format(video)
-                cap = cv2.VideoCapture(pipeline, cv2.CAP_GSTREAMER)
-            else:
-                cap = cv2.VideoCapture(video)
-
-            n_rgb += cap.get(cv2.CAP_PROP_FRAME_COUNT)
-
-        # Calculate offset between thermal and RGB streams
-        get_frame_number = lambda i: round(n_infrared*float(i)/n_rgb)
-
-        assert get_frame_number(n_rgb) == n_infrared
-
-        logger.info("{} RGB frames".format(n_rgb))
-
-        rgb_frame = 0
-
-        for video in tqdm(video_files):
-            if args.use_gstreamer:
-                pipeline = "gst-launch-1.0 -e -v filesrc location={} ! qtdemux ! decodebin ! appsink".format(video)
-                cap = cv2.VideoCapture(pipeline, cv2.CAP_GSTREAMER)
-            else:
-                cap = cv2.VideoCapture(video)
-
-            for _ in tqdm(range(int(cap.get(cv2.CAP_PROP_FRAME_COUNT)))):
-                res, frame = cap.read()
-
-                if res:
-                    if args.sync_rgb:
-                        frame_id = get_frame_number(rgb_frame)
-                    else:
-                        frame_id = rgb_frame
-
-                    out_path = os.path.join(output_folder, "rgb", "frame_{:06d}.jpg".format(frame_id))
-                    cv2.imwrite(out_path, frame, [cv2.IMWRITE_JPEG_QUALITY, args.jpeg_quality])
-
-                    rgb_frame += 1
-
-        # Copy over geotags etc
-        logger.info("Copying meta/geotags to RGB frames")
-        exiftool = Exiftool()
-        copy_filemask = os.path.normpath("./raw/%f.fff")
-        exiftool.copy_meta(output_folder, filemask=copy_filemask, output_folder=os.path.join(output_folder, "rgb"), ext="jpg")
