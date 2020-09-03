@@ -1,5 +1,5 @@
 pyserial
-opencv-python-headless
+pillow
 tqdm > 4.29
 numpy
 pytest
