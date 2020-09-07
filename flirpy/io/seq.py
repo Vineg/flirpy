@@ -1,15 +1,12 @@
 
 import numpy as np
-#import cv2
 from PIL import Image
 import os
 import re
 import mmap
-import tqdm
 import logging
 from glob import iglob, glob
 import subprocess
-from tqdm.autonotebook import tqdm
 
 try:
   from pathlib import Path
@@ -22,7 +19,8 @@ from flirpy.io.fff import Fff
 logger = logging.getLogger(__name__)
 
 class splitter:
-    
+    done = 0
+    total = 0
     def __init__(self, output_folder="./", exiftool_path=None, start_index=0, step=1, width=640, height=512, split_folders=True, preview_format="jpg"):
         
         self.exiftool = Exiftool(exiftool_path)
@@ -65,7 +63,10 @@ class splitter:
 
         folders = []
         
-        for seq in tqdm(file_list):
+        self.total = len(file_list)
+        self.done = 0
+        
+        for seq in file_list:
 
             if self.split_folders:
                 subfolder, _ = os.path.splitext(os.path.basename(seq))
@@ -95,6 +96,8 @@ class splitter:
                     preview_folder = os.path.normpath("./")
 
                 self.exiftool.write_meta(filemask)
+                
+                self.progress_callback(100.0 * (self.done + 0.75) / self.total)
 
                 # Copy geotags
                 if self.export_tiff:
@@ -104,21 +107,21 @@ class splitter:
                 if self.export_preview:
                     logger.info("Copying tags to preview")
                     self.exiftool.copy_meta(folder, filemask=copy_filemask, output_folder=preview_folder, ext=self.preview_format)
-        
+            self.done += 1
+            self.progress_callback(100.0 * self.done / self.total)
+            
         return folders
         
     def _write_tiff(self, filename, data):
         logger.debug("Writing {}", filename)
-        #cv2.imwrite(filename, data.astype("uint16"))
         Image.fromarray(np.array(data, dtype=np.uint16)).save(filename)
 
     def _write_preview(self, filename, data):
         drange = data.max()-data.min()
         preview_data = 255.0*((data-data.min())/drange)
         logger.debug("Writing {}", filename)
-        #cv2.imwrite(filename, preview_data.astype('uint8'))
-        Image.fromarray(np.array(data, dtype=np.uint8)).save(filename)
-            
+        Image.fromarray(np.array(preview_data, dtype=np.uint8)).save(filename)
+ 
     def _make_split_folders(self, output_folder):
         Path(os.path.join(output_folder, "raw")).mkdir(exist_ok=True)
         Path(os.path.join(output_folder, "radiometric")).mkdir(exist_ok=True)
@@ -155,9 +158,12 @@ class splitter:
             
             meta = None
             
-            for i, match in tqdm(enumerate(it)):
+            filesize = os.fstat(seq_file.fileno()).st_size
+            
+            for i, match in enumerate(it):
                 index = match.start()
                 chunksize = index-prev_pos
+                self.progress_callback(100.0 * (self.done + 0.5 * index / filesize) / self.total)
                 pos.append((index, chunksize))
                 prev_pos = index
                 
@@ -214,4 +220,6 @@ class splitter:
             
                 self.frame_count += 1
                     
+        return
+    def progress_callback():
         return
