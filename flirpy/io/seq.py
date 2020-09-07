@@ -97,12 +97,14 @@ class splitter:
 
                 self.exiftool.write_meta(filemask)
                 
-                self.progress_callback(100.0 * (self.done + 0.75) / self.total)
+                self.progress_callback(100.0 * (self.done + 0.67) / self.total)
 
                 # Copy geotags
                 if self.export_tiff:
                     logger.info("Copying tags to radiometric")
                     self.exiftool.copy_meta(folder, filemask=copy_filemask, output_folder=radiometric_folder, ext="tiff")
+                
+                self.progress_callback(100.0 * (self.done + 0.84) / self.total)
                 
                 if self.export_preview:
                     logger.info("Copying tags to preview")
